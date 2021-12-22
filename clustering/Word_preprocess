@@ -1,0 +1,118 @@
+import jieba
+from sklearn.cluster import KMeans
+import re
+from gensim.models import word2vec
+import multiprocessing
+import gensim
+import numpy as  np
+import pandas as pd
+import collections
+import pandas
+# mydict = ["result.txt"]
+# file_path = '/data/cuimengmeng/News_Event/clustering/result2.txt'
+# # 默认是精确模式
+# test = WordCut()
+# test.addDictionary(mydict)  # 加载自定义词典
+# # 分词，去停用词（集成在类中了），不显示在console，保存分词后的文件到file_path目录
+# test.seg_file(file_path, show=False, write=True)
+
+
+# 创建停用词列表
+def stopwordslist():
+    stopwords = [line.strip() for line in open('/data/cuimengmeng/News_Event/data/老虎咬人事件/2007-03-23＠老虎咬人之后', encoding='UTF-8').readlines()]
+    return stopwords
+
+# 对句子进行中文分词
+def seg_depart(sentence):
+    # 对文档中的每一行进行中文分词
+    print("正在分词")
+    # # # 默认是精确模式
+    sentence_depart = jieba.cut(sentence.strip())
+    # 创建一个停用词列表
+    stopwords = stopwordslist()
+    # 输出结果为outstr
+    outstr = ''
+    # 去停用词
+    for word in sentence_depart:
+        if word not in stopwords:
+            if word != '\t':
+                outstr += word
+                outstr += " "
+    return outstr
+f=open("/data/cuimengmeng/News_Event/data/老虎咬人事件/2007-03-23＠老虎咬人之后","r")
+line=f.readlines()
+lines=''.join(line)
+
+# with open("/data/cuimengmeng/News_Event/clustering/result2.txt","w") as f:
+#    f.write(seg_depart(lines))
+# 是每个词的向量维度
+size = 10
+# 是词向量训练时的上下文扫描窗口大小，窗口为5就是考虑前5个词和后5个词
+window = 5
+# 设置最低频率，默认是5，如果一个词语在文档中出现的次数小于5，那么就会丢弃
+min_count = 1
+# 是训练的进程数，默认是当前运行机器的处理器核数。
+workers = multiprocessing.cpu_count()
+# 切词语料
+train_corpus_text = 'result2.txt'
+# w2v模型文件
+model_text = 'w2v_size_{0}.model'.format(size)
+
+# 切词 @TODO 切词后注释
+
+
+# w2v训练模型 @TODO 训练后注释
+sentences = word2vec.Text8Corpus(train_corpus_text)
+model = word2vec.Word2Vec(sentences=sentences, size=size, window=window, min_count=min_count, workers=workers)
+model.save(model_text)
+
+# 加载模型
+model = gensim.models.Word2Vec.load(model_text)
+
+g = open("result2.txt", "r")  # 设置文件对象
+std = g.read()  # 将txt文件的所有内容读入到字符串str中
+g.close()  # 将文件关闭
+
+cc = std.split(' ')
+
+dd = []
+kkl = dict()
+
+'''
+将每个词语向量化，并且append 在dd中，形成一个二维数组
+并形成一个字典，index是序号，值是汉字
+'''
+for p in range(len(cc)):
+    hk = cc[p]
+    if hk in model:
+        vec = list(model.wv[hk])
+        dd.append(vec)
+        kkl[p] = hk
+
+# 将二维数组转化成numpy
+
+dd1 = np.array(dd)
+
+estimator = KMeans(n_clusters=100)  # 构造聚类器
+estimator.fit(dd1)  # 聚类
+label_pred = estimator.labels_  # 获取聚类标签
+
+# index 是某条向量的序号，值是分类号
+index1 = list(range(len(dd1)))
+vc = pd.Series(label_pred, index=index1)
+
+aa = collections.Counter(label_pred)
+v = pandas.Series(aa)
+v1 = v.sort_values(ascending=False)
+
+for n in range(10):
+    vc1 = vc[vc == v1.index[n]]
+    vindex = list(vc1.index)
+
+    kkp = pd.Series(kkl)
+
+    print('第', n, '类的前10个数据')
+
+    ffg = kkp[vindex][:10]
+    ffg1 = list(set(ffg))
+    print(ffg1)
